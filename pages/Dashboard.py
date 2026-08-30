@@ -35,13 +35,9 @@ if df.empty:
 # ---------------- RECENT RECORDS ----------------
 with st.expander("📂 View Recent Records"):
 
-    recent = (
-        df.sort_values(
-            by="id",
-            ascending=False
-        )
-        .head(5)
-    )
+    recent = df.sort_values(by="id", ascending=False).head(5).copy()
+    if "date" in recent.columns:
+        recent["date"] = pd.to_datetime(recent["date"], errors="coerce").dt.strftime("%Y-%m-%d")
 
     st.dataframe(
         recent,
@@ -106,14 +102,24 @@ if "date" in export_df.columns:
     export_df["year_label"] = export_df["date"].dt.year.astype(str)
 
     period_filter = st.selectbox(
-        "Export time filter",
-        ["All time", "Week", "Month", "Year"],
+        "Export by",
+        ["All records", "Date", "Week", "Month", "Year"],
         index=0,
     )
 
-    selected_period = "All"
+    if period_filter == "Date":
+        date_options = ["All"] + sorted(
+            export_df["date"].dt.strftime("%Y-%m-%d").dropna().unique().tolist()
+        )
+        selected_period = st.selectbox(
+            "Select date",
+            date_options,
+            format_func=lambda value: value if value == "All" else pd.to_datetime(value).strftime("%Y-%m-%d")
+        )
+        if selected_period != "All":
+            export_df = export_df[export_df["date"].dt.strftime("%Y-%m-%d") == selected_period]
 
-    if period_filter == "Week":
+    elif period_filter == "Week":
         week_options = ["All"] + sorted(
             export_df["week_label"].dropna().unique().tolist()
         )
@@ -137,14 +143,20 @@ if "date" in export_df.columns:
         if selected_period != "All":
             export_df = export_df[export_df["year_label"] == selected_period]
 
-    export_df = export_df.drop(columns=[col for col in ["week_label", "month_label", "year_label"] if col in export_df.columns], errors="ignore")
+    if period_filter != "All records":
+        export_df = export_df.drop(columns=[col for col in ["week_label", "month_label", "year_label"] if col in export_df.columns], errors="ignore")
 
 export_buffer = BytesIO()
 
 
 def create_excel_report(output, data_frame):
+    export_data = data_frame.copy()
+    if "date" in export_data.columns:
+        export_data["date"] = pd.to_datetime(export_data["date"], errors="coerce")
+        export_data["date"] = export_data["date"].dt.strftime("%Y-%m-%d")
+
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
-        data_frame.to_excel(writer, sheet_name="Filtered Records", index=False)
+        export_data.to_excel(writer, sheet_name="Filtered Records", index=False)
         weekly_table.to_excel(writer, sheet_name="Weekly Summary")
 
         overview = pd.DataFrame({
@@ -156,9 +168,9 @@ def create_excel_report(output, data_frame):
             ],
             "Value": [
                 len(df),
-                len(data_frame),
-                round(data_frame["initial_average_counts"].mean(), 2) if "initial_average_counts" in data_frame.columns else 0,
-                round(data_frame["final_counts"].mean(), 2) if "final_counts" in data_frame.columns else 0,
+                len(export_data),
+                round(export_data["initial_average_counts"].mean(), 2) if "initial_average_counts" in export_data.columns else 0,
+                round(export_data["final_counts"].mean(), 2) if "final_counts" in export_data.columns else 0,
             ],
         })
         overview.to_excel(writer, sheet_name="Overview", index=False)
@@ -172,10 +184,18 @@ create_excel_report(master_export, export_df)
 create_excel_report(export_buffer, export_df)
 
 export_buffer.seek(0)
+
+selected_label = "all-records"
+if "period_filter" in locals() and period_filter != "All records":
+    if period_filter == "Date":
+        selected_label = pd.to_datetime(selected_period).strftime("%Y-%m-%d")
+    else:
+        selected_label = str(selected_period).replace("/", "-")
+
 st.download_button(
     label="Download Excel report",
     data=export_buffer.getvalue(),
-    file_name=f"QC_Dashboard_{date.today().isoformat()}.xlsx",
+    file_name=f"{selected_label}.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     use_container_width=True,
 )

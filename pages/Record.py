@@ -162,6 +162,8 @@ with st.form("qc_form"):
                     "SELECT * FROM users",
                     conn
                 )
+                if "date" in df.columns:
+                    df["date"] = pd.to_datetime(df["date"], errors="coerce").dt.strftime("%Y-%m-%d")
 
                 # Create exports folder if it doesn't exist
                 export_folder = Path("exports")
@@ -181,6 +183,9 @@ records_df = pd.read_sql_query(
     "SELECT * FROM users ORDER BY id DESC",
     conn
 )
+
+if "date" in records_df.columns:
+    records_df["date"] = pd.to_datetime(records_df["date"], errors="coerce").dt.strftime("%Y-%m-%d")
 
 if records_df.empty:
     st.info("There are no records to edit yet.")
@@ -309,6 +314,8 @@ else:
                         "SELECT * FROM users",
                         conn
                     )
+                    if "date" in updated_df.columns:
+                        updated_df["date"] = pd.to_datetime(updated_df["date"], errors="coerce").dt.strftime("%Y-%m-%d")
                     updated_df.to_excel(
                         export_folder / "QC_Database.xlsx",
                         index=False
