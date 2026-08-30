@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+.streamlit/
+.env
+.DS_Store
+exports/*.xlsx
