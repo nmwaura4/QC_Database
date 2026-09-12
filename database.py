@@ -59,26 +59,34 @@ def initialize_database():
         """)
     #=====================
     #  Accounts Table 
-    #=
+    #=====================
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS accounts(
 
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT UNIQUE,
+        email TEXT UNIQUE,
         password TEXT,
         role TEXT
 
     )
     """)
+
+    cursor.execute("PRAGMA table_info(accounts)")
+    account_columns = [column[1].lower() for column in cursor.fetchall()]
+
+    if "email" not in account_columns:
+        cursor.execute("ALTER TABLE accounts ADD COLUMN email TEXT")
+    if "password" not in account_columns:
+        cursor.execute("ALTER TABLE accounts ADD COLUMN password TEXT")
     #=========================
     # Default Admin 
     #=========================
 
     cursor.execute("""
     INSERT OR IGNORE INTO accounts
-    (username, password, role)
+    (email, password, role)
     VALUES
-    ('admin', '1234', 'Administrator')
+    ('admin@example.com', 'Password1!', 'Administrator')
     """)
 
     conn.commit()
@@ -87,7 +95,7 @@ def initialize_database():
 # LOGIN
 # ==========
 
-def login(username, password):
+def login(email, password):
 
     conn = get_connection()
     cursor = conn.cursor()
@@ -95,9 +103,9 @@ def login(username, password):
     cursor.execute("""
         SELECT role
         FROM accounts
-        WHERE username = ?
+        WHERE email = ?
         AND password = ?
-    """, (username, password))
+    """, (email, password))
 
     user = cursor.fetchone()
 
@@ -189,7 +197,7 @@ def delete_record(record_id):
 
     cursor.execute(
 
-        "DELETE FROM records WHERE id=?",
+        "DELETE FROM users WHERE id=?",
 
         (record_id,)
 

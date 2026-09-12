@@ -1,7 +1,9 @@
+import email
+
 from database import get_connection
 
 
-def login(username, password):
+def login(email, password):
     conn = get_connection()
     cursor = conn.cursor()
 
@@ -9,10 +11,10 @@ def login(username, password):
         """
         SELECT role
         FROM accounts
-        WHERE username = ?
+        WHERE email = ?
         AND password = ?
         """,
-        (username, password)
+        (email, password)
     )
 
     user = cursor.fetchone()

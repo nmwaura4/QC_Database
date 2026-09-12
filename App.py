@@ -1,50 +1,19 @@
-from matplotlib import style
 import streamlit as st
-from pathlib import Path
+import pandas as pd
 
 from auth import login
 from assets.style import load_css
-from database import initialize_database
+from database import get_connection, initialize_database
 from config import APP_TITLE
 from sidebar import show_sidebar
-
-show_sidebar()
-
-st.markdown("""
-<style>
-.stApp {    background-color: lightnavyblue;   
-             color: white;  
-              font-family: Arial,
-             sans-serif;    
-            padding: 20px;   
-             border-radius: 10px;   
-             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);  
-              transition: background-color 0.3s ease, color 0.3s ease; 
-               text-align: center;  
-              margin-bottom: 20px;   
-             font-size: 18px;   
-             line-height: 1.6;
-}   
-</style>)
-            
-<style>
-.stButton > button {
-    background-color: #007BFF;
-    color: white;
-    border-radius: 10px;
-    font-weight: bold;
-}
-.stButton > button:hover {
-    background-color: #0056b3;
-}
-</style>
-""", unsafe_allow_html=True)
 
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config(
     page_title=APP_TITLE,
     layout="wide"
 )
+
+show_sidebar()
 
 # ---------------- INITIALIZE ----------------
 load_css()
@@ -60,12 +29,12 @@ if not st.session_state.logged_in:
     st.title("🔐 QC Database Login")
     st.caption("Please sign in to continue.")
 
-    username = st.text_input("Username")
+    email = st.text_input("Email")
     password = st.text_input("Password", type="password")
 
     if st.button("Login"):
 
-        user = login(username, password)
+        user = login(email, password)
 
         if user:
             st.session_state.logged_in = True
@@ -73,23 +42,84 @@ if not st.session_state.logged_in:
             st.rerun()
 
         else:
-            st.error("Invalid username or password.")
+            st.error("Invalid email or password.")
 
     st.stop()
 
 
-# ---------------- MAIN PAGE ----------------
+# ---------------- DASHBOARD LANDING PAGE ----------------
 
-st.title(APP_TITLE)
+st.markdown("# Quality Control Overview")
+st.caption("A quick view of production quality activity and the latest recorded checks.")
 
-st.success("Welcome user! You are logged in as admin.")
+conn = get_connection()
+records_df = pd.read_sql_query("SELECT * FROM users ORDER BY id DESC", conn)
+conn.close()
 
-st.write("""
-Welcome to the QC Database Management System.
+if records_df.empty:
+    latest_date = "No records yet"
+    product_count = 0
+    market_count = 0
+else:
+    dates = pd.to_datetime(records_df["date"], errors="coerce").dropna()
+    latest_date = dates.max().strftime("%d %b %Y") if not dates.empty else "Unknown"
+    product_count = records_df["product"].dropna().nunique()
+    market_count = records_df["market"].dropna().nunique()
 
-Select a page from the sidebar to begin.""")
+st.subheader("Key Metrics")
+metric_columns = st.columns(4)
+metrics = [
+    ("Total QC Checks", f"{len(records_df):,}", "Number of recorded quality checks."),
+    ("Unique Products", f"{product_count:,}", "Different products in the database."),
+    ("Active Markets", f"{market_count:,}", "Different markets represented."),
+    ("Most Recent Check", latest_date, "Date of the latest recorded check."),
+]
+for metric_column, (label, value, description) in zip(metric_columns, metrics):
+    with metric_column:
+        st.markdown(
+            f"""
+            <div class="metric-card">
+                <div class="metric-label">{label}</div>
+                <div class="metric-value">{value}</div>
+                <div class="metric-description">{description}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
 
 st.divider()
+action_columns = st.columns([1, 1, 2])
+with action_columns[0]:
+    if st.button("Add QC record", type="primary", use_container_width=True):
+        st.switch_page("pages/Record.py")
+with action_columns[1]:
+    if st.button("Open full dashboard", use_container_width=True):
+        st.switch_page("pages/Dashboard.py")
+
+st.subheader("Recent activity")
+if records_df.empty:
+    st.info("No quality checks have been recorded yet. Add the first QC record to get started.")
+else:
+    recent_columns = [
+        column for column in ["date", "product", "market", "customer_name", "final_counts", "remarks"]
+        if column in records_df.columns
+    ]
+    recent_df = records_df[recent_columns].head(5).copy()
+    recent_df = recent_df.rename(columns={
+        "date": "Date",
+        "product": "Product",
+        "market": "Market",
+        "customer_name": "Customer",
+        "final_counts": "Final Counts",
+        "remarks": "Remarks",
+    })
+    if "Date" in recent_df.columns:
+        recent_df["Date"] = pd.to_datetime(
+            recent_df["Date"], errors="coerce"
+        ).dt.strftime("%d %b %Y")
+    st.dataframe(recent_df, hide_index=True, use_container_width=True)
+
 #----------------
 #FOOTER
 #----------------
