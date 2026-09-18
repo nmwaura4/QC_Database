@@ -142,11 +142,21 @@ with st.expander("🗑️ Delete Record"):
     elif filtered_df.empty:
         st.info("No records match the selected filters.")
     else:
-        delete_options = [None] + filtered_df[["date", "product", "market", "final_counts"]].astype(str).apply(lambda x: "-".join(x), axis=1).tolist()
+        delete_records = filtered_df[["id", "date", "product", "market", "final_counts"]].copy()
+        delete_options = [None] + delete_records["id"].astype(int).tolist()
         selected_delete_id = st.selectbox(
             "Select a record to delete",
             delete_options,
-            format_func=lambda record_id: "Select a record" if record_id is None else str(record_id),
+            format_func=lambda record_id: (
+                "Select a record"
+                if record_id is None
+                else " - ".join(
+                    delete_records.loc[
+                        delete_records["id"] == record_id,
+                        ["date", "product", "market", "final_counts"],
+                    ].astype(str).iloc[0].tolist()
+                )
+            ),
         )
 
         if selected_delete_id is not None:
@@ -156,7 +166,7 @@ with st.expander("🗑️ Delete Record"):
                 if not confirm_delete:
                     st.warning("Please confirm deletion first.")
                 else:
-                    delete_record(selected_delete_id)
+                    delete_record(int(selected_delete_id))
                     st.success(f"Record {selected_delete_id} deleted successfully.")
                     for filter_key in [
                         "summary_volume",
@@ -168,6 +178,39 @@ with st.expander("🗑️ Delete Record"):
                     ]:
                         st.session_state.pop(filter_key, None)
                     st.rerun()
+
+st.subheader("Phytoseiulus Bulk Distribution")
+bulk_types = {
+    "Live pred": "live_pred",
+    "Dead pred": "dead_pred",
+    "Live Rsm": "live_rsm",
+    "Dead Rsm": "dead_rsm",
+}
+bulk_summary = pd.DataFrame({
+    "Bulk Type": list(bulk_types),
+    "Value": [
+        pd.to_numeric(filtered_df[column], errors="coerce").fillna(0).sum()
+        for column in bulk_types.values()
+    ],
+})
+bulk_total = bulk_summary["Value"].sum()
+bulk_summary["Total"] = bulk_total
+bulk_summary["Percentage"] = (
+    bulk_summary["Value"].div(bulk_total).mul(100).round(2)
+    if bulk_total
+    else 0.0
+)
+bulk_summary["Remarks"] = "Saved values"
+st.dataframe(
+    bulk_summary,
+    hide_index=True,
+    width="stretch",
+    column_config={
+        "Value": st.column_config.NumberColumn("Value", format="%d"),
+        "Total": st.column_config.NumberColumn("Total", format="%d"),
+        "Percentage": st.column_config.NumberColumn("Percentage", format="%.2f%%"),
+    },
+)
 
 if filtered_df.empty:
     st.info("No records match the selected filters.")
@@ -256,29 +299,14 @@ def create_excel_report(output, data_frame):
 
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
         export_data.to_excel(writer, sheet_name="Filtered Records", index=False)
-        weekly_table.to_excel(writer, sheet_name="Weekly Summary")
-
-        overview = pd.DataFrame({
-            "Metric": [
-                "Total records",
-                "Records in export",
-                "Average initial counts",
-                "Average final counts",
-            ],
-            "Value": [
-                len(df),
-                len(export_data),
-                round(export_data["initial_average_counts"].mean(), 2) if "initial_average_counts" in export_data.columns else 0,
-                round(export_data["final_counts"].mean(), 2) if "final_counts" in export_data.columns else 0,
-            ],
-        })
-        overview.to_excel(writer, sheet_name="Overview", index=False)
 
 
 # Keep a current master workbook on the server for future downloads.
 export_folder = Path("exports")
 export_folder.mkdir(exist_ok=True)
 master_export = export_folder / "QC_Dashboard.xlsx"
+
+create_excel_report(export_buffer, export_df)
 
 
 export_buffer.seek(0)

@@ -57,6 +57,26 @@ def initialize_database():
         ALTER TABLE users
         ADD COLUMN customer_name TEXT
         """)
+
+    if "phytoseiulus_bulk" not in existing_columns:
+        cursor.execute("""
+        ALTER TABLE users
+        ADD COLUMN phytoseiulus_bulk TEXT
+        """)
+
+    bulk_columns = {
+        "live_pred": "INTEGER",
+        "dead_pred": "INTEGER",
+        "live_rsm": "INTEGER",
+        "dead_rsm": "INTEGER",
+        "live_pred_percentage": "REAL",
+        "dead_pred_percentage": "REAL",
+        "live_rsm_percentage": "REAL",
+        "dead_rsm_percentage": "REAL",
+    }
+    for column_name, column_type in bulk_columns.items():
+        if column_name not in existing_columns:
+            cursor.execute(f"ALTER TABLE users ADD COLUMN {column_name} {column_type}")
     #=====================
     #  Accounts Table 
     #=====================

@@ -105,7 +105,7 @@ else:
         column for column in ["date", "product", "market", "customer_name", "final_counts", "remarks"]
         if column in records_df.columns
     ]
-    recent_df = records_df[recent_columns].head(5).copy()
+    recent_df = records_df[recent_columns].head(10).copy()
     recent_df = recent_df.rename(columns={
         "date": "Date",
         "product": "Product",

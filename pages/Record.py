@@ -9,7 +9,7 @@ show_sidebar()
 
 
 if not st.session_state.get("logged_in", False):
-    st.switch_page("Dashboard.py")  
+    st.switch_page("app.py")
     st.stop()
 
     
@@ -22,15 +22,15 @@ cursor = conn.cursor()
 
 product_options = [
     "Montdorensis", "Californicus", "Cucumeris", "Swirskii",
-    "Hypoaspis", "Phytoseiulus", "lacewings", "Other"
+    "Hypoaspis", "Phytoseiulus", "lacewings", "Trichogramma", "Other"
 ]
 market_options = ["Export", "Local"]
 customer_options = [
-    "Biobest ", "Sher", "Uganda", "Tanzania", "V.D berg", "Timaflor1",
+    "Biobest ", "Sher", "Uganda", "Tanzania", "S.A","V.Dberg", "Timaflor1",
     "Timaflor2", "Timaflor 3", "Timaflor 4", "Timaflor 5", "Timaflor 6",
     "Timaflor 7", "lolomarik1", "Lolomarik 2", "Penta", "Selecta kenya",
     "De Reuiters", "Uhuru", "Olnjorowa", "Dudutech", "Kongngoni", "Bigot",
-    "Flamingo", "United selection", "Cash customer"
+    "Flamingo", "United selection", "Cash customer","Other local customers", "A.Q Roses","Redlands"
 ]
 volume_options = [
     "1,000", "5,000", "10,000", "12,500", "25,000", "50,000",
@@ -46,7 +46,6 @@ market_options = [required_option] + market_options
 customer_options = [required_option] + customer_options
 volume_options = [required_option] + volume_options
 benchmark_options = [required_option] + benchmark_options
-
 with st.form("qc_form"):
 
     left, right = st.columns(2)
@@ -87,6 +86,23 @@ with st.form("qc_form"):
 
         benchmark = st.selectbox("Benchmark *", benchmark_options)
 
+        st.markdown("**Phytoseiulus Bulk Counts (optional)**")
+        bulk_columns = st.columns(4)
+        with bulk_columns[0]:
+            live_pred = st.number_input("Live pred", min_value=0, value=0, step=1)
+        with bulk_columns[1]:
+            dead_pred = st.number_input("Dead pred", min_value=0, value=0, step=1)
+        with bulk_columns[2]:
+            live_rsm = st.number_input("Live Rsm", min_value=0, value=0, step=1)
+        with bulk_columns[3]:
+            dead_rsm = st.number_input("Dead Rsm", min_value=0, value=0, step=1)
+
+        bulk_total = live_pred + dead_pred + live_rsm + dead_rsm
+        live_pred_percentage = round(live_pred / bulk_total * 100, 2) if bulk_total else 0
+        dead_pred_percentage = round(dead_pred / bulk_total * 100, 2) if bulk_total else 0
+        live_rsm_percentage = round(live_rsm / bulk_total * 100, 2) if bulk_total else 0
+        dead_rsm_percentage = round(dead_rsm / bulk_total * 100, 2) if bulk_total else 0
+
         remarks = st.text_area(
             "Remarks (optional)",
             placeholder="Write any observations, issues, or customer feedback...",
@@ -122,7 +138,8 @@ with st.form("qc_form"):
             SELECT id FROM users
             WHERE date=? AND product=? AND market=? AND customer_name=?
               AND volume=? AND initial_average_counts=? AND final_counts=?
-              AND benchmark=? AND remarks=?
+              AND benchmark=? AND remarks=? AND live_pred=? AND dead_pred=?
+              AND live_rsm=? AND dead_rsm=?
             LIMIT 1
             """, (
                 str(record_date),
@@ -133,7 +150,11 @@ with st.form("qc_form"):
                 initial_average,
                 final_counts,
                 benchmark,
-                remarks
+                remarks,
+                live_pred,
+                dead_pred,
+                live_rsm,
+                dead_rsm,
             ))
             duplicate_record = cursor.fetchone()
 
@@ -154,11 +175,19 @@ with st.form("qc_form"):
                     initial_average_counts,
                     final_counts,
                     benchmark,
-                    remarks
+                    remarks,
+                    live_pred,
+                    dead_pred,
+                    live_rsm,
+                    dead_rsm,
+                    live_pred_percentage,
+                    dead_pred_percentage,
+                    live_rsm_percentage,
+                    dead_rsm_percentage
                 )
 
                 VALUES
-                (?,?,?,?,?,?,?,?,?,?)
+                (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
 
                 (
@@ -171,7 +200,15 @@ with st.form("qc_form"):
                     initial_average,
                     final_counts,
                     benchmark,
-                    remarks
+                    remarks,
+                    live_pred,
+                    dead_pred,
+                    live_rsm,
+                    dead_rsm,
+                    live_pred_percentage,
+                    dead_pred_percentage,
+                    live_rsm_percentage,
+                    dead_rsm_percentage,
                 ))
 
                 conn.commit()
@@ -262,13 +299,22 @@ else:
     else:
         edit_table = filtered_records[[
             "id", "date", "product", "market", "customer_name", "volume",
-            "initial_average_counts", "final_counts", "benchmark", "remarks"
+            "initial_average_counts", "final_counts", "benchmark", "remarks",
+            "live_pred", "dead_pred", "live_rsm", "dead_rsm",
+            "live_pred_percentage", "dead_pred_percentage",
+            "live_rsm_percentage", "dead_rsm_percentage"
         ]].copy()
         edit_table["date"] = pd.to_datetime(edit_table["date"], errors="coerce").dt.date
         edit_table["initial_average_counts"] = edit_table["initial_average_counts"].fillna(0).astype(int)
         edit_table["final_counts"] = edit_table["final_counts"].fillna(0).astype(int)
         for column in ["product", "market", "customer_name", "volume", "benchmark", "remarks"]:
             edit_table[column] = edit_table[column].fillna("").astype(str)
+        for column in [
+            "live_pred", "dead_pred", "live_rsm", "dead_rsm",
+            "live_pred_percentage", "dead_pred_percentage",
+            "live_rsm_percentage", "dead_rsm_percentage",
+        ]:
+            edit_table[column] = pd.to_numeric(edit_table[column], errors="coerce").fillna(0)
 
         record_ids = tuple(edit_table["id"].astype(int).tolist())
         editor_key = (
@@ -293,6 +339,14 @@ else:
                 "final_counts": st.column_config.NumberColumn("Final Counts", min_value=0, step=1),
                 "benchmark": st.column_config.SelectboxColumn("Benchmark", options=benchmark_options),
                 "remarks": st.column_config.TextColumn("Remarks"),
+                "live_pred": st.column_config.NumberColumn("Live pred", min_value=0, step=1),
+                "dead_pred": st.column_config.NumberColumn("Dead pred", min_value=0, step=1),
+                "live_rsm": st.column_config.NumberColumn("Live Rsm", min_value=0, step=1),
+                "dead_rsm": st.column_config.NumberColumn("Dead Rsm", min_value=0, step=1),
+                "live_pred_percentage": st.column_config.NumberColumn("Live pred %", format="%.2f%%", disabled=True),
+                "dead_pred_percentage": st.column_config.NumberColumn("Dead pred %", format="%.2f%%", disabled=True),
+                "live_rsm_percentage": st.column_config.NumberColumn("Live Rsm %", format="%.2f%%", disabled=True),
+                "dead_rsm_percentage": st.column_config.NumberColumn("Dead Rsm %", format="%.2f%%", disabled=True),
             },
         )
 
@@ -318,6 +372,15 @@ else:
                     initial_average = 0
                 if pd.isna(final_counts):
                     final_counts = 0
+                bulk_counts = [
+                    max(0, int(edited_values[column] or 0))
+                    for column in ["live_pred", "dead_pred", "live_rsm", "dead_rsm"]
+                ]
+                bulk_total = sum(bulk_counts)
+                bulk_percentages = [
+                    round(count / bulk_total * 100, 2) if bulk_total else 0
+                    for count in bulk_counts
+                ]
                 values = [
                     edit_date.isocalendar().week,
                     str(edit_date),
@@ -329,23 +392,31 @@ else:
                     int(final_counts),
                     str(edited_values["benchmark"]),
                     str(edited_values["remarks"]),
+                    *bulk_counts,
+                    *bulk_percentages,
                 ]
 
                 if pd.isna(record_id):
                     cursor.execute("""
                     INSERT INTO users
                     (week, date, product, market, customer_name, volume,
-                     initial_average_counts, final_counts, benchmark, remarks)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     initial_average_counts, final_counts, benchmark, remarks,
+                     live_pred, dead_pred, live_rsm, dead_rsm,
+                     live_pred_percentage, dead_pred_percentage,
+                     live_rsm_percentage, dead_rsm_percentage)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """, values)
                     inserted_count += 1
                 else:
                     cursor.execute("""
-                    UPDATE users
-                    SET week=?, date=?, product=?, market=?, customer_name=?, volume=?,
-                        initial_average_counts=?, final_counts=?, benchmark=?, remarks=?
-                    WHERE id=?
-                    """, [*values, int(record_id)])
+                    INSERT OR REPLACE INTO users
+                    (id, week, date, product, market, customer_name, volume,
+                     initial_average_counts, final_counts, benchmark, remarks,
+                     live_pred, dead_pred, live_rsm, dead_rsm,
+                     live_pred_percentage, dead_pred_percentage,
+                     live_rsm_percentage, dead_rsm_percentage)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, [int(record_id), *values])
                     updated_count += 1
 
             if errors:
