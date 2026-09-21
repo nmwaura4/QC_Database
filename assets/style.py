@@ -9,7 +9,7 @@ def load_css():
     }
 
     div[data-testid="stMetric"]{
-        background:lightblue;
+        background:#d3d3d3 !important;
         border:1px solid lightsblue;
         padding:20px;
         border-radius:10px;
@@ -23,37 +23,41 @@ def load_css():
     div[data-testid="stCaptionContainer"],
     div[data-testid="stCaptionContainer"] * {
         color: white !important;
-        font-size: 1.5rem;
+        font-size: 1.3rem;
         font-weight: 600;
     }
     div[data-testid="stMetricValue"] {
-        color:midnightblue !important;
+        color:#00c853 !important;
+        font-weight:700 !important;
+        text-shadow:0 1px 1px rgba(255, 255, 255, 0.7);
     }
 
     .metric-card {
         min-height:132px;
-        background:lightgray;
-        border:1px solid lightsblue;
+        background:#d3d3d3;
+        border:1px solid #add8e6;
         padding:18px;
         border-radius:10px;
     }
 
-    .metric-label {
-        color:black;
+    .metric-card .metric-label {
+        color:#111827 !important;
         font-size:0.9rem;
         font-weight:600;
     }
 
-    .metric-value {
-        color:green;
+    .metric-card .metric-value {
+        color:#00c853 !important;
         font-size:2rem;
+        font-weight:700;
         line-height:1.2;
         margin:8px 0;
+        text-shadow:0 1px 1px rgba(255, 255, 255, 0.7);
     }
 
-    .metric-description {
-        color:black;
-        font-size:0.78rem;
+    .metric-card .metric-description {
+        color:black !important;
+        font-size:1.25rem;
         line-height:1.35;
     }
     </style>

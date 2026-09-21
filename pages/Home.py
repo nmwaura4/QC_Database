@@ -1,53 +1,8 @@
-import streamlit as st
 import pandas as pd
+import streamlit as st
 
-from auth import login
-from assets.style import load_css
-from database import get_connection, initialize_database
-from config import APP_TITLE
-from sidebar import show_sidebar
+from database import get_connection
 
-# ---------------- PAGE CONFIG ----------------
-st.set_page_config(
-    page_title=APP_TITLE,
-    layout="wide"
-)
-
-show_sidebar()
-
-# ---------------- INITIALIZE ----------------
-load_css()
-initialize_database()
-
-# ---------------- SESSION STATE ----------------
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
-
-# ---------------- LOGIN PAGE ----------------
-if not st.session_state.logged_in:
-
-    st.title("🔐 QC Database Login")
-    st.caption("Please sign in to continue.")
-
-    email = st.text_input("Email")
-    password = st.text_input("Password", type="password")
-
-    if st.button("Login"):
-
-        user = login(email, password)
-
-        if user:
-            st.session_state.logged_in = True
-            st.session_state.role = user[0]
-            st.rerun()
-
-        else:
-            st.error("Invalid email or password.")
-
-    st.stop()
-
-
-# ---------------- DASHBOARD LANDING PAGE ----------------
 
 st.markdown("# Quality Control Overview")
 st.caption("A quick view of production quality activity and the latest recorded checks.")
@@ -87,7 +42,6 @@ for metric_column, (label, value, description) in zip(metric_columns, metrics):
             unsafe_allow_html=True,
         )
 
-
 st.divider()
 action_columns = st.columns([1, 1, 2])
 with action_columns[0]:
@@ -105,7 +59,7 @@ else:
         column for column in ["date", "product", "market", "customer_name", "final_counts", "remarks"]
         if column in records_df.columns
     ]
-    recent_df = records_df[recent_columns].head(10).copy()
+    recent_df = records_df[recent_columns].head(5).copy()
     recent_df = recent_df.rename(columns={
         "date": "Date",
         "product": "Product",
@@ -115,31 +69,5 @@ else:
         "remarks": "Remarks",
     })
     if "Date" in recent_df.columns:
-        recent_df["Date"] = pd.to_datetime(
-            recent_df["Date"], errors="coerce"
-        ).dt.strftime("%d %b %Y")
+        recent_df["Date"] = pd.to_datetime(recent_df["Date"], errors="coerce").dt.strftime("%d %b %Y")
     st.dataframe(recent_df, hide_index=True, use_container_width=True)
-
-#----------------
-#FOOTER
-#----------------
-st.markdown("""
-<div style="
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    width: 100%;
-    background: #f8f9fa;
-    color: #6c757d;
-    text-align: center;
-    padding: 12px 0;
-    border-top: 1px solid #e9ecef;
-    font-family: Arial, sans-serif;
-    font-size: 13px;
-    z-index: 999;
-">
-    © 2026 <strong>QC Database v1.0.0</strong> | All Rights Reserved
-</div>
-""", unsafe_allow_html=True)
-
-    
