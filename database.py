@@ -102,12 +102,18 @@ def initialize_database():
     # Default Admin 
     #=========================
 
-    cursor.execute("""
-    INSERT OR IGNORE INTO accounts
-    (email, password, role)
-    VALUES
-    ('admin@example.com', 'Password1!', 'Administrator')
-    """)
+    cursor.execute(
+        "SELECT 1 FROM accounts WHERE email = ? LIMIT 1",
+        ("admin@example.com",),
+    )
+    if cursor.fetchone() is None:
+        cursor.execute(
+            """
+            INSERT INTO accounts (email, password, role)
+            VALUES (?, ?, ?)
+            """,
+            ("admin@example.com", "Password1!", "Administrator"),
+        )
 
     conn.commit()
     conn.close()
