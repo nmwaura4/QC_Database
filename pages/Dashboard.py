@@ -119,6 +119,8 @@ if selected_date != "All":
     filtered_df = filtered_df[filtered_df["date"].dt.strftime("%Y-%m-%d") == selected_date]
 if selected_week != "All":
     filtered_df = filtered_df[filtered_df["week_label"] == selected_week]
+
+bulk_distribution_df = filtered_df.copy()
 if selected_month != "All":
     filtered_df = filtered_df[filtered_df["month_label"] == selected_month]
 if selected_year != "All":
@@ -193,8 +195,50 @@ bulk_summary = pd.DataFrame({
         for column in bulk_types.values()
     ],
 })
+bulk_period = st.selectbox(
+    "Bulk distribution period",
+    ["Month", "Day"],
+    key="bulk_distribution_period",
+)
+if bulk_period == "Month":
+    bulk_period_summary = bulk_distribution_df.groupby(
+        bulk_distribution_df["date"].dt.to_period("M")
+    )[list(bulk_types.values())].sum()
+    bulk_period_options = ["All months"] + sorted(
+        bulk_period_summary.index.astype(str).tolist(), reverse=True
+    )
+    bulk_period_labels = {
+        period: pd.Period(period).strftime("%B %Y")
+        for period in bulk_period_options
+        if period != "All months"
+    }
+else:
+    bulk_period_summary = bulk_distribution_df.groupby(
+        bulk_distribution_df["date"].dt.date
+    )[list(bulk_types.values())].sum()
+    bulk_period_options = ["All days"] + sorted(
+        bulk_period_summary.index.tolist(), reverse=True
+    )
+    bulk_period_labels = {
+        period: period.strftime("%d %B %Y")
+        for period in bulk_period_options
+        if period != "All days"
+    }
+
+selected_bulk_period = st.selectbox(
+    f"Bulk distribution {bulk_period.lower()}",
+    bulk_period_options,
+    format_func=lambda period: bulk_period_labels.get(period, period),
+    key="bulk_distribution_selection",
+)
+if selected_bulk_period in ("All months", "All days"):
+    selected_bulk_values = bulk_summary["Value"]
+else:
+    selected_bulk_values = bulk_period_summary.loc[
+        selected_bulk_period, list(bulk_types.values())
+    ].values
+bulk_summary["Value"] = selected_bulk_values
 bulk_total = bulk_summary["Value"].sum()
-bulk_summary["Total"] = bulk_total
 bulk_summary["Percentage"] = (
     bulk_summary["Value"].div(bulk_total).mul(100).round(2)
     if bulk_total
@@ -207,7 +251,6 @@ st.dataframe(
     width="stretch",
     column_config={
         "Value": st.column_config.NumberColumn("Value", format="%d"),
-        "Total": st.column_config.NumberColumn("Total", format="%d"),
         "Percentage": st.column_config.NumberColumn("Percentage", format="%.2f%%"),
     },
 )
