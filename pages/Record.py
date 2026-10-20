@@ -4,8 +4,6 @@ from datetime import date
 from pathlib import Path
 from database import get_connection
 import streamlit as st
-from sidebar import show_sidebar
-show_sidebar()
 
 
 if not st.session_state.get("logged_in", False):

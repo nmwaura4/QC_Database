@@ -59,10 +59,7 @@ available_pages = [
 ]
 
 if st.session_state.get("role") == "Administrator":
-    available_pages.append(st.Page("pages/Users.py", title="User Management"))
+    available_pages.append(st.Page("pages/Profile Management.py", title="Profile Management"))
 
 st.navigation(available_pages).run()
-
-
-from auth import login
 

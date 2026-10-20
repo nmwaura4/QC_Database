@@ -5,9 +5,6 @@ from datetime import date
 from pathlib import Path
 from database import delete_record, get_connection
 from config import APP_TITLE
-from sidebar import show_sidebar
-
-show_sidebar()
 if not st.session_state.get("logged_in", False):
     st.switch_page("app.py")   # or whatever your main file is called
     st.stop()
